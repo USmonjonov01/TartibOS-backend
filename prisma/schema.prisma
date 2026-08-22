@@ -1,0 +1,144 @@
+// TartibOS — Prisma sxemasi
+// mockapi.io'dagi "erkin" JSON strukturasidan farqli o'laroq, bu yerda
+// har bir yozuv haqiqiy foreign key orqali o'ziga tegishli foydalanuvchiga
+// bog'langan — bu ma'lumotlar izolyatsiyasini server darajasida ta'minlaydi.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  ism          String
+  email        String   @unique
+  passwordHash String
+  number       String?
+  address      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  activities Activity[]
+  routines   Routine[]
+  weeks      Week[]
+  missions   Mission[]
+  reviews    DailyReview[]
+
+  @@map("users")
+}
+
+// Profil tarixi — "Profil tahrirlandi", "Parol yangilandi" kabi yozuvlar
+model Activity {
+  id        String   @id @default(uuid())
+  title     String
+  color     String?
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("activities")
+}
+
+// Odat shabloni. "retired" — versiyalash uchun: eski versiya o'chirilmaydi,
+// nofaol qilinadi, tarix saqlanadi.
+model Routine {
+  id                String   @id @default(uuid())
+  title             String
+  start             String
+  end               String
+  category          String?
+  priority          String?
+  color             String?
+  icon              String?
+  days              String[] // ["mon","tue",...] — bo'sh bo'lsa, har kuni
+  dayPlans          Json? // { mon: "Plan 1", tue: "Plan 2", ... }
+  defaultMissions   Json?
+  groupId           String?
+  active            Boolean  @default(true)
+  retired           Boolean  @default(false)
+  effectiveFromWeek String?
+  versions          Int      @default(1)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("routines")
+}
+
+// Haftalik kuzatuv yozuvi — bitta foydalanuvchi uchun bitta ISO hafta = bitta yozuv
+model Week {
+  id          String   @id @default(uuid())
+  weekId      String // "2026-W33"
+  routineId   String   @default("1") // legacy — mockapi arxitekturasidan meros
+  statuses    Json     @default("{}") // { mon: "completed" | "partial" | "missed" }
+  executions  Json     @default("{}") // { mon: 8 }
+  completions Json     @default("{}") // { mon: ["habitKey1", "habitKey2"] }
+  scores      Json     @default("{}") // { mon: { habitKey1: 9, habitKey2: 10 } }
+  reasons     Json     @default("{}")
+  conclusion  String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekId])
+  @@index([userId])
+  @@map("weeks")
+}
+
+model Mission {
+  id           String    @id @default(uuid())
+  title        String
+  description  String?
+  date         String // "2026-08-15"
+  start        String?
+  end          String?
+  priority     String?
+  difficulty   Int?
+  estimateMin  Int?
+  notes        String?
+  scope        String? // "bugun" | "kelgusi" | "haftalik"
+  habitGroupId String?
+  completed    Boolean   @default(false)
+  cancelled    Boolean   @default(false)
+  reason       String?
+  score        Int?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  userId String
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  review DailyReview[]
+
+  @@index([userId])
+  @@index([userId, date])
+  @@map("missions")
+}
+
+// Kunlik refleksiya — ixtiyoriy ravishda bitta missiyaga bog'lanishi mumkin
+model DailyReview {
+  id        String   @id @default(uuid())
+  date      String
+  win       String?
+  mistake   String?
+  summary   String?
+  tomorrow  String?
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  missionId String?
+  mission   Mission? @relation(fields: [missionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("daily_reviews")
+}
