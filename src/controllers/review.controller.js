@@ -26,10 +26,22 @@ export const createReview = async (req, res, next) => {
             }
         }
 
-        const review = await prisma.dailyReview.create({
-            data: { ...data, userId: req.user.id },
-        });
-        res.status(201).json({ review });
+        // Bir kun (daily) yoki bir hafta (weekly) uchun faqat bitta yozuv
+        // bo'lishi kerak — qayta saqlaganda yangisi qo'shilmaydi, borini
+        // yangilaydi (frontenddagi "Reviewni saqlash" tugmasi shu xatti-
+        // harakatni kutadi: qayta bosilsa dublikat yaratilmasin).
+        const matchWhere =
+            data.mode === "weekly"
+                ? { userId: req.user.id, mode: "weekly", weekId: data.weekId }
+                : { userId: req.user.id, mode: "daily", date: data.date };
+
+        const existing = await prisma.dailyReview.findFirst({ where: matchWhere });
+
+        const review = existing
+            ? await prisma.dailyReview.update({ where: { id: existing.id }, data })
+            : await prisma.dailyReview.create({ data: { ...data, userId: req.user.id } });
+
+        res.status(existing ? 200 : 201).json({ review });
     } catch (err) {
         next(err);
     }

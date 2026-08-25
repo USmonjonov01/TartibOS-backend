@@ -8,8 +8,13 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Neon'ning pooled (PgBouncer) ulanishi ko'p qisqa so'rovlar uchun yaxshi,
+  // lekin Prisma Migrate advisory lock'lar talab qiladi va pooler orqali
+  // ba'zan barqaror ishlamaydi. DIRECT_URL — pooler'siz to'g'ridan-to'g'ri
+  // ulanish, faqat migratsiyalar shundan foydalanadi.
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -124,15 +129,26 @@ model Mission {
   @@map("missions")
 }
 
-// Kunlik refleksiya — ixtiyoriy ravishda bitta missiyaga bog'lanishi mumkin
+// Kunlik va haftalik refleksiya. "mode" ikkalasini bitta jadvalda ajratadi:
+// daily uchun "date" asosiy kalit, weekly uchun "weekId" asosiy kalit.
+// discipline/execution/missionRate/habitConsistency — 1 dan 5 gacha baho
+// (frontenddagi ScoreField komponenti bilan mos, 0 = hali belgilanmagan).
 model DailyReview {
-  id        String   @id @default(uuid())
-  date      String
-  win       String?
-  mistake   String?
-  summary   String?
-  tomorrow  String?
-  createdAt DateTime @default(now())
+  id               String   @id @default(uuid())
+  mode             String   @default("daily") // "daily" | "weekly"
+  date             String
+  weekId           String?
+  achievement      String?
+  mistake          String?
+  summary          String?
+  nextFocus        String?
+  reflection       String?
+  discipline       Int?
+  execution        Int?
+  missionRate      Int?
+  habitConsistency Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -140,5 +156,7 @@ model DailyReview {
   mission   Mission? @relation(fields: [missionId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([userId, mode, date])
+  @@index([userId, mode, weekId])
   @@map("daily_reviews")
 }
