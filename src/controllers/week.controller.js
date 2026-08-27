@@ -38,7 +38,9 @@ export const upsertDay = async (req, res, next) => {
 
         const nextExecutions = { ...(existing?.executions || {}), [dayKey]: habitIds.length };
         const nextCompletions = { ...(existing?.completions || {}), [dayKey]: habitIds };
-        const nextScores = { ...(existing?.scores || {}), ...(scores ? { [dayKey]: scores } : {}) };
+        // scores => full object replacement (frontend "reasons" bilan bir xil pattern:
+        // butun haftalik { dayKey: { habitKey: ball } } obyektini yuboradi)
+        const nextScores = scores !== undefined ? scores : (existing?.scores || {});
         // reasons => full object replacement (frontend sends merged reasons)
         const nextReasons = reasons !== undefined ? reasons : (existing?.reasons || {});
 
