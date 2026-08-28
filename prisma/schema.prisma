@@ -27,13 +27,37 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Telegram bot integratsiyasi — foydalanuvchi botni ulaguncha ikkalasi ham null
+  telegramChatId   String?   @unique
+  telegramLinkedAt DateTime?
+  // IANA timezone identifikatori (masalan "Asia/Tashkent") — eslatmalar
+  // shu vaqt mintaqasiga qarab yuboriladi
+  timezone         String    @default("Asia/Tashkent")
+
   activities Activity[]
   routines   Routine[]
   weeks      Week[]
   missions   Mission[]
   reviews    DailyReview[]
+  telegramLinkTokens TelegramLinkToken[]
 
   @@map("users")
+}
+
+// Botni hisobga ulash uchun bir martalik, muddati cheklangan token.
+// Foydalanuvchi saytda "Telegram botni ulash" tugmasini bosganda yaratiladi,
+// deep-link orqali botga uzatiladi va /start buyrug'ida ishlatiladi.
+model TelegramLinkToken {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("telegram_link_tokens")
 }
 
 // Profil tarixi — "Profil tahrirlandi", "Parol yangilandi" kabi yozuvlar

@@ -21,6 +21,10 @@ export const env = {
         .map((o) => o.trim())
         .filter(Boolean),
     nodeEnv: process.env.NODE_ENV || "development",
+    // Telegram bot — ixtiyoriy. Token bo'lmasa, bot shunchaki ishga tushmaydi,
+    // web API'ga hech qanday ta'sir qilmaydi.
+    telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || null,
+    telegramBotUsername: process.env.TELEGRAM_BOT_USERNAME || null,
 };
 
 export default env;
