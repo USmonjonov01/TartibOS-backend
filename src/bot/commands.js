@@ -26,8 +26,9 @@ const handleStart = async (msg, match) => {
     if (!token) {
         await bot.sendMessage(
             chatId,
-            "Assalomu alaykum! 👋 TartibOS botiga xush kelibsiz.\n\n" +
-                "Hisobingizni bog'lash uchun saytda Sozlamalar → \"Telegram botni ulash\" tugmasini bosing."
+            "Assalomu alaykum! 👋 Men — TartibOS botiman.\n\n" +
+                "Sizga har kuni odatlaringiz vaqti kelganda eslataman va shu yerdan turib \"✅ Bajarildi\" deb belgilashingizga yordam beraman.\n\n" +
+                "Boshlash uchun: tartibos.uz saytiga kiring → Sozlamalar → \"Telegram botni ulash\" tugmasini bosing."
         );
         return;
     }
