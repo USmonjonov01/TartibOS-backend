@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import prisma from "../lib/prisma.js";
 import bot from "../lib/telegram.js";
+import env from "../config/env.js";
 import { getTodayStatusForUser } from "./habits.js";
 import { getHHMM } from "../lib/date.js";
 
@@ -8,10 +9,15 @@ const sendReminder = async (user, habit) => {
     const planLine = habit.todayPlan ? `\n📝 ${habit.todayPlan}` : "";
     const text = `⏰ Vaqti keldi: ${habit.title} (${habit.start})${planLine}`;
 
+    const buttons = [[{ text: "✅ Tez belgilash", callback_data: `done:${habit.id}` }]];
+    // Mini App orqali: bajarilmadi/sababli va yulduzcha baholash — buni oddiy
+    // callback tugma bilan qilib bo'lmaydi, shuning uchun to'liq interfeys kerak
+    if (env.miniAppUrl) {
+        buttons.push([{ text: "📱 Batafsil (baholash bilan)", web_app: { url: env.miniAppUrl } }]);
+    }
+
     await bot.sendMessage(user.telegramChatId, text, {
-        reply_markup: {
-            inline_keyboard: [[{ text: "✅ Bajarildi", callback_data: `done:${habit.id}` }]],
-        },
+        reply_markup: { inline_keyboard: buttons },
     });
 };
 

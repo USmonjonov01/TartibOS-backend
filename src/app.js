@@ -10,6 +10,7 @@ import weekRoutes from "./routes/week.routes.js";
 import missionRoutes from "./routes/mission.routes.js";
 import reviewRoutes from "./routes/review.routes.js";
 import telegramRoutes from "./routes/telegram.routes.js";
+import prisma from "./lib/prisma.js";
 
 const app = express();
 
@@ -40,7 +41,19 @@ app.use(
     })
 );
 
-app.get("/health", (req, res) => res.json({ status: "ok", time: new Date().toISOString() }));
+app.get("/health", async (req, res) => {
+    try {
+        // Engil so'rov — asosiy maqsad Neon'ning "serverless compute"si
+        // uxlab qolmasligi (~5 daqiqa faoliyatsizlikdan keyin avtomatik
+        // to'xtaydi). Tashqi uptime-monitoring xizmati shu endpoint'ni
+        // har 5 daqiqada bir chaqirib tursa, bot ham, baza ham doim tayyor
+        // holatda qoladi.
+        await prisma.$queryRaw`SELECT 1`;
+        res.json({ status: "ok", db: "ok", time: new Date().toISOString() });
+    } catch (err) {
+        res.status(503).json({ status: "degraded", db: "error", message: err.message });
+    }
+});
 
 app.use("/api/auth", authRoutes);
 app.use("/api/routines", routineRoutes);

@@ -1,5 +1,6 @@
 import prisma from "../lib/prisma.js";
 import bot from "../lib/telegram.js";
+import env from "../config/env.js";
 import { getTodayStatusForUser, markHabitDoneForUser } from "./habits.js";
 
 const findUserByChatId = (chatId) => prisma.user.findUnique({ where: { telegramChatId: String(chatId) } });
@@ -130,12 +131,26 @@ const handleCallbackQuery = async (query) => {
     }
 };
 
+const handleApp = async (msg) => {
+    const chatId = msg.chat.id;
+    if (!env.miniAppUrl) {
+        await bot.sendMessage(chatId, "Mini App hozircha sozlanmagan.");
+        return;
+    }
+    await bot.sendMessage(chatId, "Bugungi odatlaringizni ochish uchun tugmani bosing 👇", {
+        reply_markup: {
+            inline_keyboard: [[{ text: "📱 TartibOS'ni ochish", web_app: { url: env.miniAppUrl } }]],
+        },
+    });
+};
+
 export const registerBotCommands = () => {
     if (!bot) return;
 
     bot.onText(/\/start(?:\s+(.+))?/, (msg, match) => handleStart(msg, match).catch(console.error));
     bot.onText(/\/bugun/, (msg) => handleBugun(msg).catch(console.error));
     bot.onText(/\/stats/, (msg) => handleStats(msg).catch(console.error));
+    bot.onText(/\/app/, (msg) => handleApp(msg).catch(console.error));
     bot.on("callback_query", (query) => handleCallbackQuery(query).catch(console.error));
 
     console.log("[telegram] Bot buyruqlari ro'yxatdan o'tkazildi");

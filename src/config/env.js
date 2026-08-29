@@ -25,6 +25,8 @@ export const env = {
     // web API'ga hech qanday ta'sir qilmaydi.
     telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || null,
     telegramBotUsername: process.env.TELEGRAM_BOT_USERNAME || null,
+    // Telegram Mini App ochiladigan sahifa manzili (frontend'dagi /telegram-app route'i)
+    miniAppUrl: process.env.MINI_APP_URL || null,
 };
 
 export default env;
