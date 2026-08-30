@@ -87,3 +87,34 @@ export const markHabitDoneForUser = async (user, routineId) => {
 };
 
 export const getTodayDateStr = (timezone) => getDateStr(timezone);
+
+// Haftaning barcha kunlari uchun: shu kunga rejalashtirilgan odatlar soni va
+// nechtasi bajarilgani. /haftalik buyrug'i uchun.
+export const getWeekOverviewForUser = async (user) => {
+    const timezone = user.timezone || "Asia/Tashkent";
+    const weekId = getISOWeekId(timezone);
+    const dayOrder = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+
+    const [routines, week] = await Promise.all([
+        prisma.routine.findMany({ where: { userId: user.id } }),
+        prisma.week.findUnique({ where: { userId_weekId: { userId: user.id, weekId } } }),
+    ]);
+
+    const todayKey = getDayKey(timezone);
+    const todayIndex = dayOrder.indexOf(todayKey);
+
+    const days = dayOrder.map((day, index) => {
+        const scheduled = dedupeAndFilterByDay(routines, day);
+        const doneCount = (week?.completions?.[day] || []).length;
+        return {
+            day,
+            scheduled: scheduled.length,
+            done: doneCount,
+            pct: scheduled.length > 0 ? Math.round((doneCount / scheduled.length) * 100) : null,
+            isFuture: index > todayIndex,
+            isToday: index === todayIndex,
+        };
+    });
+
+    return { weekId, days };
+};

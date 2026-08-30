@@ -6,8 +6,8 @@ import { getTodayStatusForUser } from "./habits.js";
 import { getHHMM } from "../lib/date.js";
 
 const sendReminder = async (user, habit) => {
-    const planLine = habit.todayPlan ? `\n📝 ${habit.todayPlan}` : "";
-    const text = `⏰ Vaqti keldi: ${habit.title} (${habit.start})${planLine}`;
+    const planLine = habit.todayPlan ? `\n📝 <i>${habit.todayPlan}</i>` : "";
+    const text = `⏰ <b>Vaqti keldi:</b> ${habit.title} (${habit.start})${planLine}`;
 
     const buttons = [[{ text: "✅ Tez belgilash", callback_data: `done:${habit.id}` }]];
     // Mini App orqali: bajarilmadi/sababli va yulduzcha baholash — buni oddiy
@@ -17,6 +17,7 @@ const sendReminder = async (user, habit) => {
     }
 
     await bot.sendMessage(user.telegramChatId, text, {
+        parse_mode: "HTML",
         reply_markup: { inline_keyboard: buttons },
     });
 };
