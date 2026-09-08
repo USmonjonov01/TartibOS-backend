@@ -1,5 +1,5 @@
 import prisma from "../lib/prisma.js";
-import bot from "../lib/telegram.js";
+import {bot} from "../lib/telegram.js";
 import env from "../config/env.js";
 import { getTodayStatusForUser, getWeekOverviewForUser, markHabitDoneForUser } from "./habits.js";
 import { getMissionOverviewForUser } from "./missions.js";

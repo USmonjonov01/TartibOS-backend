@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import prisma from "../lib/prisma.js";
-import bot from "../lib/telegram.js";
+import {bot} from "../lib/telegram.js";
 import env from "../config/env.js";
 import { getTodayStatusForUser } from "./habits.js";
 import { getHHMM } from "../lib/date.js";
