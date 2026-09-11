@@ -10,6 +10,7 @@ import weekRoutes from "./routes/week.routes.js";
 import missionRoutes from "./routes/mission.routes.js";
 import reviewRoutes from "./routes/review.routes.js";
 import telegramRoutes from "./routes/telegram.routes.js";
+import goalRoutes from "./routes/goal.routes.js";
 import prisma from "./lib/prisma.js";
 
 const app = express();
@@ -61,6 +62,7 @@ app.use("/api/weeks", weekRoutes);
 app.use("/api/missions", missionRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/telegram", telegramRoutes);
+app.use("/api/goals", goalRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

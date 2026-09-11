@@ -9,6 +9,7 @@ const publicUser = (user) => ({
     email: user.email,
     number: user.number,
     address: user.address,
+    level: user.level,
     createdAt: user.createdAt,
 });
 

@@ -34,14 +34,67 @@ model User {
   // shu vaqt mintaqasiga qarab yuboriladi
   timezone         String    @default("Asia/Tashkent")
 
+  // Goal-asosidagi Level tizimi — bu user.level GLOBAL: har qanday Goal
+  // ostidagi istalgan RoadmapStep bajarilganda oshadi. Eski kunlik/haftalik
+  // intizom % taqqoslashiga asoslangan "Level Up!" toast bilan ARALASHMAYDI —
+  // u alohida, faqat frontendda hisoblanadigan vaqtinchalik hodisa bo'lib
+  // qoladi (bu yerda saqlanmaydi).
+  level Int @default(1)
+
   activities Activity[]
   routines   Routine[]
   weeks      Week[]
   missions   Mission[]
   reviews    DailyReview[]
   telegramLinkTokens TelegramLinkToken[]
+  goals      Goal[]
 
   @@map("users")
+}
+
+// Foydalanuvchining shaxsiy maqsadi (masalan "Fullstack Developer bo'lish").
+// Har bir Goal — Yo'l xaritasi sahifasidagi bitta "tog'"ga mos keladi.
+model Goal {
+  id          String   @id @default(uuid())
+  title       String
+  // Agar tayyor andozadan yaratilgan bo'lsa, uning kaliti (masalan
+  // "frontend-to-fullstack") — src/data/roadmapTemplates.js'ga qarang.
+  // Andozasiz, foydalanuvchi qo'lda yaratgan bo'lsa — null.
+  templateKey String?
+  status      String   @default("active") // active | completed | archived
+  // Yo'l xaritasi sahifasidagi carousel tartibi (kichikdan kattaga)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId String
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  steps  RoadmapStep[]
+
+  @@index([userId])
+  @@map("goals")
+}
+
+// Bitta Goal ichidagi bosqich — tog'dagi bitta "belgi". Bajarilganda
+// user.level +1 bo'ladi va dashboard'dagi unvon shu bosqichning
+// stageLabel'iga yangilanadi.
+model RoadmapStep {
+  id          String    @id @default(uuid())
+  title       String
+  // Dashboard'da "Level N" ostida ko'rinadigan qisqa unvon
+  // (masalan "Junior Backend"). Bo'sh qoldirilsa, Goal.title ishlatiladi.
+  stageLabel  String?
+  // Tog' bo'ylab pastdan tepaga tartib (0 = eng past bosqich)
+  order       Int       @default(0)
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  goalId String
+  goal   Goal   @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+  @@map("roadmap_steps")
 }
 
 // Botni hisobga ulash uchun bir martalik, muddati cheklangan token.
