@@ -23,7 +23,7 @@ export const requireAuth = async (req, res, next) => {
             return res.status(401).json({ message: "Foydalanuvchi topilmadi" });
         }
 
-        req.user = { id: user.id, email: user.email, ism: user.ism };
+        req.user = { id: user.id, email: user.email, ism: user.ism, level: user.level };
         next();
     } catch {
         return res.status(401).json({ message: "Token yaroqsiz yoki muddati o'tgan" });

@@ -5,6 +5,21 @@ export const createGoalSchema = z.object({
     // Andozadan boshlash uchun (masalan "frontend-to-fullstack"). Bo'sh
     // qoldirilsa, bosqichsiz Goal yaratiladi — foydalanuvchi o'zi qo'shadi.
     templateKey: z.string().trim().max(80).optional().nullable(),
+    // AI generatsiya qilib bergan (yoki foydalanuvchi tahrirlagan) bosqichlar.
+    // Berilsa, templateKey'dan ustun turadi.
+    steps: z
+        .array(
+            z.object({
+                title: z.string().trim().min(2).max(200),
+                stageLabel: z.string().trim().max(80).optional().nullable(),
+            })
+        )
+        .max(12)
+        .optional(),
+});
+
+export const generateStepsSchema = z.object({
+    title: z.string().trim().min(2, "Maqsad nomi kamida 2 ta belgidan iborat bo'lishi kerak").max(150),
 });
 
 export const updateGoalSchema = z.object({

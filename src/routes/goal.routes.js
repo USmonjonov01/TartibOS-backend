@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { requireAuth } from "../middleware/auth.js";
 import {
     listTemplates,
@@ -10,13 +11,25 @@ import {
     updateStep,
     deleteStep,
     toggleStep,
+    generateSteps,
 } from "../controllers/goal.controller.js";
 
 const router = Router();
 
 router.use(requireAuth);
 
+// AI chaqiruvi haqiqiy pul sarflaydi — umumiy 300/15daqiqalik limitdan tashqari,
+// shu endpoint uchun alohida qattiqroq chegara: soatiga 15 ta so'rov.
+const aiLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit: 15,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: "AI so'rovlar chegarasiga yetdingiz. Bir soatdan keyin qayta urinib ko'ring." },
+});
+
 router.get("/templates", listTemplates);
+router.post("/generate", aiLimiter, generateSteps);
 
 router.get("/", listGoals);
 router.post("/", createGoal);

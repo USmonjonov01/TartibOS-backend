@@ -1,10 +1,12 @@
 import prisma from "../lib/prisma.js";
 import { roadmapTemplates, findTemplate } from "../data/roadmapTemplates.js";
+import { generateRoadmapSteps } from "../lib/aiRoadmap.js";
 import {
     createGoalSchema,
     updateGoalSchema,
     createStepSchema,
     updateStepSchema,
+    generateStepsSchema,
 } from "../validators/goal.validators.js";
 
 // Frontend'dagi Goal yaratish formasi shu ro'yxatdan andoza tanlash imkonini
@@ -32,10 +34,41 @@ export const listGoals = async (req, res, next) => {
     }
 };
 
+// Foydalanuvchi maqsad nomini yozgandan keyin, buni chaqirib, AI'dan shu
+// maqsadga mos bosqichlar ro'yxatini so'raydi. Hech narsa saqlanmaydi —
+// faqat ko'rib chiqish (preview) uchun qaytariladi, foydalanuvchi tahrirlab
+// yoki o'chirib, keyin createGoal orqali haqiqiy Goal yaratadi.
+export const generateSteps = async (req, res, next) => {
+    try {
+        const { title } = generateStepsSchema.parse(req.body);
+        const steps = await generateRoadmapSteps(title);
+        if (steps.length === 0) {
+            return res.status(502).json({ message: "AI bosqich taklif qila olmadi. Qo'lda qo'shing." });
+        }
+        res.json({ steps });
+    } catch (err) {
+        if (err.code === "AI_NOT_CONFIGURED") {
+            return res.status(503).json({ message: "AI xizmati hozircha sozlanmagan. Qo'lda qo'shing." });
+        }
+        if (err.code === "AI_REQUEST_FAILED" || err.code === "AI_PARSE_FAILED") {
+            return res.status(502).json({ message: "AI xizmatida xatolik yuz berdi. Qayta urinib ko'ring." });
+        }
+        next(err);
+    }
+};
+
 export const createGoal = async (req, res, next) => {
     try {
         const data = createGoalSchema.parse(req.body);
         const template = data.templateKey ? findTemplate(data.templateKey) : null;
+
+        // Ustunlik tartibi: foydalanuvchi tahrirlagan/tasdiqlagan AI bosqichlari
+        // (data.steps) > statik andoza (template) > bosqichsiz (bo'sh Goal).
+        const stepsToCreate = data.steps?.length
+            ? data.steps
+            : template
+              ? template.steps
+              : null;
 
         const lastGoal = await prisma.goal.findFirst({
             where: { userId: req.user.id },
@@ -46,12 +79,12 @@ export const createGoal = async (req, res, next) => {
         const goal = await prisma.goal.create({
             data: {
                 title: data.title,
-                templateKey: template?.key ?? null,
+                templateKey: data.steps?.length ? null : (template?.key ?? null),
                 order: nextOrder,
                 userId: req.user.id,
-                steps: template
+                steps: stepsToCreate
                     ? {
-                          create: template.steps.map((s, i) => ({
+                          create: stepsToCreate.map((s, i) => ({
                               title: s.title,
                               stageLabel: s.stageLabel,
                               order: i,

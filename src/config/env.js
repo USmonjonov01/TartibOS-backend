@@ -27,6 +27,13 @@ export const env = {
     telegramBotUsername: process.env.TELEGRAM_BOT_USERNAME || null,
     // Telegram Mini App ochiladigan sahifa manzili (frontend'dagi /telegram-app route'i)
     miniAppUrl: process.env.MINI_APP_URL || null,
+    // Yo'l xaritasi bosqichlarini AI orqali generatsiya qilish uchun (Google AI Studio /
+    // Gemini API, bepul reja). Bo'lmasa, foydalanuvchi faqat qo'lda bosqich qo'sha oladi
+    // (xato bermaydi — goal.controller.js buni tutib, tushunarli xabar qaytaradi).
+    // Model nomi Google tomonidan tez-tez yangilanadi — joriy bepul modelni
+    // https://aistudio.google.com'dan tekshirib, GEMINI_MODEL orqali sozlang.
+    geminiApiKey: process.env.GEMINI_API_KEY || null,
+    geminiModel: process.env.GEMINI_MODEL || "gemini-2.5-flash",
 };
 
 export default env;
