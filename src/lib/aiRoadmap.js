@@ -18,6 +18,11 @@ Qat'iy qoidalar:
   markdown belgisisiz:
 {"steps":[{"title":"...","stageLabel":"..."}]}`;
 
+const MAX_RETRIES = 2; // jami 3 marta urinadi (1 + 2 qayta urinish)
+const RETRY_DELAY_MS = 1200;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // goalTitle — foydalanuvchi kiritgan maqsad matni (masalan "Fullstack developer bo'lish").
 // Muvaffaqiyatli bo'lsa, [{ title, stageLabel }] massivini qaytaradi.
 // API kaliti yo'q yoki chaqiruv muvaffaqiyatsiz bo'lsa, xato tashlaydi — controller buni tutib,
@@ -35,50 +40,62 @@ export async function generateRoadmapSteps(goalTitle) {
     // GEMINI_MODEL shunday). Agar kelajakda GEMINI_MODEL'ni 2.5 seriyasiga o'zgartirsangiz,
     // bu yerda thinkingBudget'ga almashtirish kerak bo'ladi — aks holda 400 xato qaytadi.
 
-    const response = await fetch(url, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": env.geminiApiKey,
-        },
-        body: JSON.stringify({
-            system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-            contents: [{ role: "user", parts: [{ text: `Maqsad: ${goalTitle}` }] }],
-            // Gemini 3.x'da "thinking" standart holatda yoqiq bo'lib, oddiy so'rovga ham
-            // yuzlab token sarflaydi. Bizga esa qisqa JSON ro'yxat kifoya — shuning uchun
-            // "low" bilan tezlik/xarajatni optimallashtiramiz, sifat bu vazifa uchun yetarli.
-            generationConfig: {
-                responseMimeType: "application/json",
-                thinkingConfig: { thinkingLevel: "low" },
+    let lastErr;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-goog-api-key": env.geminiApiKey,
             },
-        }),
-    });
+            body: JSON.stringify({
+                system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+                contents: [{ role: "user", parts: [{ text: `Maqsad: ${goalTitle}` }] }],
+                // Gemini 3.x'da "thinking" standart holatda yoqiq bo'lib, oddiy so'rovga ham
+                // yuzlab token sarflaydi. Bizga esa qisqa JSON ro'yxat kifoya — shuning uchun
+                // "low" bilan tezlik/xarajatni optimallashtiramiz, sifat bu vazifa uchun yetarli.
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    thinkingConfig: { thinkingLevel: "low" },
+                },
+            }),
+        });
 
-    if (!response.ok) {
+        if (response.ok) {
+            const data = await response.json();
+            const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+            let parsed;
+            try {
+                parsed = JSON.parse(rawText);
+            } catch {
+                const err = new Error("AI javobini o'qib bo'lmadi");
+                err.code = "AI_PARSE_FAILED";
+                throw err; // parse xatosi qayta urinishga yordam bermaydi — darhol tashlaymiz
+            }
+
+            const steps = Array.isArray(parsed?.steps) ? parsed.steps : [];
+            return steps
+                .filter((s) => s?.title)
+                .slice(0, 8)
+                .map((s) => ({
+                    title: String(s.title).slice(0, 200),
+                    stageLabel: s.stageLabel ? String(s.stageLabel).slice(0, 80) : null,
+                }));
+        }
+
         const text = await response.text().catch(() => "");
-        const err = new Error(`AI xizmatidan xato: ${response.status} ${text}`);
-        err.code = "AI_REQUEST_FAILED";
-        throw err;
+        lastErr = new Error(`AI xizmatidan xato: ${response.status} ${text}`);
+        lastErr.code = "AI_REQUEST_FAILED";
+
+        // Faqat "vaqtincha band" xatolarida qayta urinamiz (503/429). Boshqa
+        // xatolarda (masalan 400 — noto'g'ri so'rov) qayta urinish foyda bermaydi.
+        const isRetryable = response.status === 503 || response.status === 429;
+        if (!isRetryable || attempt === MAX_RETRIES) {
+            throw lastErr;
+        }
+        await sleep(RETRY_DELAY_MS * (attempt + 1));
     }
 
-    const data = await response.json();
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    let parsed;
-    try {
-        parsed = JSON.parse(rawText);
-    } catch {
-        const err = new Error("AI javobini o'qib bo'lmadi");
-        err.code = "AI_PARSE_FAILED";
-        throw err;
-    }
-
-    const steps = Array.isArray(parsed?.steps) ? parsed.steps : [];
-    return steps
-        .filter((s) => s?.title)
-        .slice(0, 8)
-        .map((s) => ({
-            title: String(s.title).slice(0, 200),
-            stageLabel: s.stageLabel ? String(s.stageLabel).slice(0, 80) : null,
-        }));
+    throw lastErr;
 }
