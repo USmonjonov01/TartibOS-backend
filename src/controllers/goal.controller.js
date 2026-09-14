@@ -43,14 +43,17 @@ export const generateSteps = async (req, res, next) => {
         const { title } = generateStepsSchema.parse(req.body);
         const steps = await generateRoadmapSteps(title);
         if (steps.length === 0) {
+            console.error("[goals/generate] AI bo'sh javob qaytardi, title:", title);
             return res.status(502).json({ message: "AI bosqich taklif qila olmadi. Qo'lda qo'shing." });
         }
         res.json({ steps });
     } catch (err) {
         if (err.code === "AI_NOT_CONFIGURED") {
+            console.error("[goals/generate] AI sozlanmagan:", err.message);
             return res.status(503).json({ message: "AI xizmati hozircha sozlanmagan. Qo'lda qo'shing." });
         }
         if (err.code === "AI_REQUEST_FAILED" || err.code === "AI_PARSE_FAILED") {
+            console.error(`[goals/generate] ${err.code}:`, err.message);
             return res.status(502).json({ message: "AI xizmatida xatolik yuz berdi. Qayta urinib ko'ring." });
         }
         next(err);
