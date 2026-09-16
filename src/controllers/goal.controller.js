@@ -28,7 +28,7 @@ export const listGoals = async (req, res, next) => {
             orderBy: { order: "asc" },
             include: { steps: { orderBy: { order: "asc" } } },
         });
-        res.json({ goals, level: req.user.level });
+        res.json({ goals });
     } catch (err) {
         next(err);
     }
@@ -196,12 +196,16 @@ export const deleteStep = async (req, res, next) => {
     }
 };
 
-// Bosqichni bajarilgan/bajarilmagan deb belgilaydi va shunga qarab
-// user.level'ni +1/-1 qiladi. Ikkalasi bitta tranzaksiyada bajariladi —
-// step yangilanib, level yangilanmay qolishi (yoki aksincha) mumkin emas.
-// "level up" faqat bajarilmagandan bajarilganga o'tganda sodir bo'ladi —
-// shuning uchun bir xil holatni qayta yuborish (masalan ikki marta bosish)
-// levelni ikki marta oshirmaydi.
+// Bosqichni bajarilgan/bajarilmagan deb belgilaydi.
+//
+// MUHIM: bu yerda endi global user.level'ga TEGILMAYDI. Avvalgi versiyada
+// har qanday Goal'dagi bosqich global Level'ni oshirar edi — bu bir nechta
+// Goal bo'lsa, ularning darajalari bir-birini "bosib" ketishiga sabab
+// bo'lgan jiddiy xato edi. Endi Level — Goal'ning o'zi ichida hisoblanadigan
+// narsa (1 + shu Goal'dagi bajarilgan bosqichlar soni), frontend buni
+// goal.steps'dan to'g'ridan-to'g'ri hisoblaydi, backend hech narsa
+// saqlamaydi. Shu sabab bu yerda faqat step yangilanadi, level haqida
+// hech narsa qaytarilmaydi.
 export const toggleStep = async (req, res, next) => {
     try {
         const { goalId, stepId } = req.params;
@@ -211,33 +215,14 @@ export const toggleStep = async (req, res, next) => {
         if (!step) return res.status(404).json({ message: "Bosqich topilmadi" });
 
         const willComplete = !step.completed;
-        const levelDelta = willComplete ? 1 : -1;
-
-        const [updatedStep, updatedUser] = await prisma.$transaction([
-            prisma.roadmapStep.update({
-                where: { id: stepId },
-                data: { completed: willComplete, completedAt: willComplete ? new Date() : null },
-            }),
-            prisma.user.update({
-                where: { id: req.user.id },
-                // Level 1 dan pastga tushmaydi — user allaqachon 1-levelda
-                // bo'lsa va biror eski bosqichni bekor qilsa, minusga
-                // o'tmasin.
-                data: { level: { increment: levelDelta } },
-            }),
-        ]);
-
-        const safeUser =
-            updatedUser.level < 1
-                ? await prisma.user.update({ where: { id: req.user.id }, data: { level: 1 } })
-                : updatedUser;
-
-        res.json({
-            step: updatedStep,
-            level: safeUser.level,
-            leveledUp: willComplete,
+        const updatedStep = await prisma.roadmapStep.update({
+            where: { id: stepId },
+            data: { completed: willComplete, completedAt: willComplete ? new Date() : null },
         });
+
+        res.json({ step: updatedStep, leveledUp: willComplete });
     } catch (err) {
         next(err);
+
     }
 };
