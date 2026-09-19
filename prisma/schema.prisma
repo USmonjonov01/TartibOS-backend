@@ -21,11 +21,29 @@ model User {
   id           String   @id @default(uuid())
   ism          String
   email        String   @unique
-  passwordHash String
+  // Google orqali yaratilgan hisoblarda parol umuman bo'lmasligi mumkin,
+  // shuning uchun endi ixtiyoriy. login() controller'i buni tekshirib,
+  // parolsiz hisobga oddiy login urinishini tushunarli xabar bilan rad etadi.
+  passwordHash String?
   number       String?
   address      String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  // Google Sign-In — bog'langan Google hisobining barqaror ID'si (sub claim).
+  // Oddiy email+parol bilan ro'yxatdan o'tgan foydalanuvchi keyinchalik
+  // "Google bilan kirish"ni bosib, xuddi shu email'ga ega Google hisobini
+  // ulashi mumkin (googleAuth controller'iga qarang) — shunda ikkala usul
+  // ham BITTA hisobga olib keladi, ikkita alohida foydalanuvchi yaratilmaydi.
+  googleId String? @unique
+  avatarUrl String?
+
+  // Email tasdiqlash — oddiy ro'yxatdan o'tishda false bo'lib boshlanadi va
+  // EmailVerificationToken orqali tasdiqlanadi. Google Sign-In orqali kelgan
+  // hisoblar googleAuth controller'ida darhol true qilib qo'yiladi (chunki
+  // Google email'ni allaqachon o'zi tasdiqlagan).
+  emailVerified   Boolean   @default(false)
+  emailVerifiedAt DateTime?
 
   // Telegram bot integratsiyasi — foydalanuvchi botni ulaguncha ikkalasi ham null
   telegramChatId   String?   @unique
@@ -48,8 +66,43 @@ model User {
   reviews    DailyReview[]
   telegramLinkTokens TelegramLinkToken[]
   goals      Goal[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
 
   @@map("users")
+}
+
+// Parolni tiklash uchun bir martalik, muddati cheklangan token. Xavfsizlik
+// uchun bazada RAW token emas, uning SHA-256 xeshi saqlanadi (parolga
+// o'xshab) — shu orqali baza sizib chiqsa ham, tokenlarning o'zi ishlatib
+// bo'lmaydigan holda qoladi. Ko'rinadigan (raw) token faqat foydalanuvchiga
+// yuborilgan email havolasida bo'ladi.
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// Email tasdiqlash uchun bir martalik token — xuddi PasswordResetToken bilan
+// bir xil xeshlash strategiyasi.
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("email_verification_tokens")
 }
 
 // Foydalanuvchining shaxsiy maqsadi (masalan "Fullstack Developer bo'lish").

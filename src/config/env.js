@@ -34,6 +34,29 @@ export const env = {
     // https://aistudio.google.com'dan tekshirib, GEMINI_MODEL orqali sozlang.
     geminiApiKey: process.env.GEMINI_API_KEY || null,
     geminiModel: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+
+    // Frontend'ning to'liq manzili — parolni tiklash va email tasdiqlash
+    // havolalari shu manzil ustiga quriladi (masalan
+    // `${appUrl}/reset-password?token=...`). CORS_ORIGIN'dagi birinchi
+    // manzilga tushadi, lekin alohida sozlash ham mumkin.
+    appUrl: process.env.APP_URL || (process.env.CORS_ORIGIN || "http://localhost:5173").split(",")[0].trim(),
+
+    // Email yuborish (SMTP) — ixtiyoriy. Sozlanmagan bo'lsa, parolni tiklash
+    // va email tasdiqlash havolalari xato bermaydi, faqat server logiga
+    // yoziladi (dev rejimida qulay) — mailer.js'ga qarang.
+    smtp: {
+        host: process.env.SMTP_HOST || null,
+        port: Number(process.env.SMTP_PORT) || 587,
+        secure: process.env.SMTP_SECURE === "true",
+        user: process.env.SMTP_USER || null,
+        pass: process.env.SMTP_PASS || null,
+        from: process.env.SMTP_FROM || "TartibOS <no-reply@tartibos.uz>",
+    },
+
+    // Google Sign-In — Google Cloud Console'dagi OAuth 2.0 Client ID
+    // (frontenddagi Google tugmasi ishlatadigan bilan BIR XIL bo'lishi kerak,
+    // aks holda token audience tekshiruvi rad etadi).
+    googleClientId: process.env.GOOGLE_CLIENT_ID || null,
 };
 
 export default env;
