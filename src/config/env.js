@@ -53,6 +53,13 @@ export const env = {
         from: process.env.SMTP_FROM || "TartibOS <no-reply@tartibos.uz>",
     },
 
+    // Brevo transactional email API (HTTPS orqali, SMTP EMAS) — Render kabi
+    // hostinglar chiquvchi SMTP portlarini bloklaganda ISHLAYDIGAN yagona
+    // yo'l. Sozlangan bo'lsa, mailer.js har doim shuni ustun qo'yadi (SMTP
+    // sozlamalaridan qat'iy nazar). brevo.com'da ro'yxatdan o'tib, "SMTP &
+    // API" bo'limidan olinadi.
+    brevoApiKey: process.env.BREVO_API_KEY || null,
+
     // Google Sign-In — Google Cloud Console'dagi OAuth 2.0 Client ID
     // (frontenddagi Google tugmasi ishlatadigan bilan BIR XIL bo'lishi kerak,
     // aks holda token audience tekshiruvi rad etadi).

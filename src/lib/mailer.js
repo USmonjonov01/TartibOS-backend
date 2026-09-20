@@ -1,12 +1,16 @@
 import nodemailer from "nodemailer";
 import env from "../config/env.js";
 
-// SMTP sozlanmagan bo'lishi mumkin (masalan lokal dev muhitida) — bunday
-// holda email jo'natilmaydi, lekin ilova ishlashda davom etadi: havola
-// shunchaki server logiga chiqariladi, shu orqali dev rejimida SMTP sozlamay
-// turib ham parolni tiklash/email tasdiqlash oqimini sinab ko'rish mumkin.
-// Bu xuddi geminiApiKey / telegramBotToken uchun qo'llanilgan "ixtiyoriy
-// xususiyat" andozasi bilan bir xil.
+// Render (va bepul rejadagi ko'p boshqa hostinglar) chiquvchi SMTP
+// portlarini (25/465/587) spam-profilaktika maqsadida bloklab qo'yadi —
+// shu sabab raw SMTP ulanishi doim "Connection timeout" bilan tugaydi,
+// SMTP ma'lumotlari to'g'ri bo'lsa ham. Buning YAGONA ishonchli yechimi —
+// email'ni SMTP protokoli orqali emas, oddiy HTTPS so'rov orqali yuborish
+// (443-port hech qachon bloklanmaydi). Shu sabab Brevo'ning transactional
+// email API'si BIRINCHI TANLOV: BREVO_API_KEY sozlangan bo'lsa, shundan
+// foydalaniladi. SMTP (nodemailer) faqat orqaga qaytish (fallback) sifatida
+// qoladi — Render'dan boshqa, SMTP portlarini bloklamaydigan hostingda
+// ishlatilsa mumkin.
 let transporter = null;
 if (env.smtp.host && env.smtp.user && env.smtp.pass) {
     transporter = nodemailer.createTransport({
@@ -14,17 +18,46 @@ if (env.smtp.host && env.smtp.user && env.smtp.pass) {
         port: env.smtp.port,
         secure: env.smtp.secure,
         auth: { user: env.smtp.user, pass: env.smtp.pass },
-        // Render (va boshqa ko'p hostinglar) tarmog'ida Gmail'ning SMTP
-        // serveriga IPv6 orqali ulanish "Connection timeout" bilan tugaydi —
-        // chunki hosting'ning IPv6 yo'nalishi Google'gacha to'g'ri
-        // ishlamaydi. family:4 Node.js'ga har doim IPv4'dan foydalanishni
-        // majburlaydi, bu muammoni butunlay hal qiladi.
         family: 4,
         connectionTimeout: 15000,
         greetingTimeout: 10000,
         socketTimeout: 15000,
     });
 }
+
+// "TartibOS <no-reply@tartibos.uz>" ko'rinishidagi qatordan ism va email'ni
+// ajratib oladi — Brevo API JSON tanasida {email, name} shaklida talab
+// qiladi, nodemailer esa xuddi shu qatorning o'zini qabul qiladi.
+const parseFrom = (fromHeader) => {
+    const match = fromHeader.match(/^(.*)<(.+)>$/);
+    if (match) return { name: match[1].trim().replace(/^"|"$/g, ""), email: match[2].trim() };
+    return { name: "TartibOS", email: fromHeader.trim() };
+};
+
+const sendViaBrevoApi = async ({ to, subject, html }) => {
+    const { name, email } = parseFrom(env.smtp.from);
+
+    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "api-key": env.brevoApiKey,
+        },
+        body: JSON.stringify({
+            sender: { email, name },
+            to: [{ email: to }],
+            subject,
+            htmlContent: html,
+        }),
+    });
+
+    if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`Brevo API xatosi (${res.status}): ${body}`);
+    }
+    return { sent: true };
+};
 
 const wrapper = (title, bodyHtml) => `
 <!DOCTYPE html>
@@ -66,12 +99,16 @@ const button = (href, label) => `
 <div style="font-size:12px;color:#66748F;word-break:break-all;">${href}</div>`;
 
 export const sendMail = async ({ to, subject, html }) => {
+    if (env.brevoApiKey) {
+        return sendViaBrevoApi({ to, subject, html });
+    }
+
     if (!transporter) {
-        // SMTP sozlanmagan — havolani (test/dev uchun) loglaymiz va jim
-        // qaytamiz. Controller bu holatda ham foydalanuvchiga xato
+        // Hech biri sozlanmagan — havolani (test/dev uchun) loglaymiz va
+        // jim qaytamiz. Controller bu holatda ham foydalanuvchiga xato
         // ko'rsatmasligi kerak (aks holda parolni tiklash butunlay
-        // ishlamay qoladi, SMTP sozlanmagunicha).
-        console.warn(`[mailer] SMTP sozlanmagan — "${subject}" xabari ${to}'ga yuborilmadi (faqat log).`);
+        // ishlamay qoladi, email yuborish sozlanmagunicha).
+        console.warn(`[mailer] Email yuborish sozlanmagan — "${subject}" xabari ${to}'ga yuborilmadi (faqat log).`);
         return { sent: false };
     }
 
