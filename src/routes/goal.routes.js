@@ -12,6 +12,7 @@ import {
     deleteStep,
     toggleStep,
     generateSteps,
+    generateRoutine,
 } from "../controllers/goal.controller.js";
 
 const router = Router();
@@ -30,6 +31,7 @@ const aiLimiter = rateLimit({
 
 router.get("/templates", listTemplates);
 router.post("/generate", aiLimiter, generateSteps);
+router.post("/:goalId/routine", aiLimiter, generateRoutine);
 
 router.get("/", listGoals);
 router.post("/", createGoal);

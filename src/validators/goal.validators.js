@@ -14,12 +14,19 @@ export const createGoalSchema = z.object({
                 stageLabel: z.string().trim().max(80).optional().nullable(),
             })
         )
-        .max(12)
+        // AI endi 15–20 bosqich beradi (lib/aiRoadmap.js — MAX_STEPS)
+        .max(25)
         .optional(),
 });
 
 export const generateStepsSchema = z.object({
     title: z.string().trim().min(2, "Maqsad nomi kamida 2 ta belgidan iborat bo'lishi kerak").max(150),
+});
+
+// Maqsad uchun AI kun tartibi tuzish. dailyHours — foydalanuvchi kuniga maqsadga
+// qancha vaqt ajrata olishi (ixtiyoriy; berilmasa AI 2 soat deb oladi).
+export const generateRoutineSchema = z.object({
+    dailyHours: z.number().min(0.5).max(8).optional(),
 });
 
 export const updateGoalSchema = z.object({

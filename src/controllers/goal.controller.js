@@ -1,12 +1,14 @@
 import prisma from "../lib/prisma.js";
 import { roadmapTemplates, findTemplate } from "../data/roadmapTemplates.js";
 import { generateRoadmapSteps } from "../lib/aiRoadmap.js";
+import { generateRoutinePlan } from "../lib/aiRoutine.js";
 import {
     createGoalSchema,
     updateGoalSchema,
     createStepSchema,
     updateStepSchema,
     generateStepsSchema,
+    generateRoutineSchema,
 } from "../validators/goal.validators.js";
 
 // Frontend'dagi Goal yaratish formasi shu ro'yxatdan andoza tanlash imkonini
@@ -55,6 +57,57 @@ export const generateSteps = async (req, res, next) => {
         if (err.code === "AI_REQUEST_FAILED" || err.code === "AI_PARSE_FAILED") {
             console.error(`[goals/generate] ${err.code}:`, err.message);
             return res.status(502).json({ message: "AI xizmatida xatolik yuz berdi. Qayta urinib ko'ring." });
+        }
+        next(err);
+    }
+};
+
+// Maqsadga mos kun tartibini (Routine yozuvlarini) AI orqali tuzadi va SAQLAYDI.
+// Yo'l xaritasidan farqli, bu yerda "ko'rib chiqish" bosqichi yo'q: foydalanuvchi
+// frontendda "ha, tuzib bering" deb tasdiqlagan, keyin odatlarni Routine
+// sahifasida o'zi tahrirlaydi/o'chiradi. Yaratilgan odatlar groupId =
+// "goal:<goalId>" bilan belgilanadi — shu orqali ikki marta yaratilishi oldi olinadi.
+export const generateRoutine = async (req, res, next) => {
+    try {
+        const { goalId } = req.params;
+        const { dailyHours } = generateRoutineSchema.parse(req.body ?? {});
+
+        const goal = await prisma.goal.findFirst({
+            where: { id: goalId, userId: req.user.id },
+            include: { steps: { orderBy: { order: "asc" } } },
+        });
+        if (!goal) return res.status(404).json({ message: "Maqsad topilmadi" });
+
+        const groupId = `goal:${goal.id}`;
+        const alreadyCreated = await prisma.routine.count({
+            where: { userId: req.user.id, groupId, retired: false },
+        });
+        if (alreadyCreated > 0) {
+            return res.status(409).json({
+                message: "Bu maqsad uchun kun tartibi allaqachon yaratilgan. Uni \"Kun tartibim\" sahifasida tahrirlashingiz mumkin.",
+            });
+        }
+
+        const existingRoutines = await prisma.routine.findMany({
+            where: { userId: req.user.id, retired: false, active: true },
+            select: { title: true, start: true, end: true, days: true },
+        });
+
+        const plan = await generateRoutinePlan({ goal, existingRoutines, dailyHours });
+
+        const routines = await prisma.$transaction(
+            plan.map((r) => prisma.routine.create({ data: { ...r, groupId, userId: req.user.id } }))
+        );
+
+        res.status(201).json({ routines });
+    } catch (err) {
+        if (err.code === "AI_NOT_CONFIGURED") {
+            console.error("[goals/routine] AI sozlanmagan:", err.message);
+            return res.status(503).json({ message: "AI xizmati hozircha sozlanmagan. Kun tartibini qo'lda qo'shing." });
+        }
+        if (err.code === "AI_REQUEST_FAILED" || err.code === "AI_PARSE_FAILED") {
+            console.error(`[goals/routine] ${err.code}:`, err.message);
+            return res.status(502).json({ message: "AI kun tartibini tuza olmadi. Qayta urinib ko'ring." });
         }
         next(err);
     }
