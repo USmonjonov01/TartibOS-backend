@@ -1,4 +1,4 @@
-import { generateJson } from "./gemini.js";
+import { generateJson } from "./aiClient.js";
 
 // Yo'l xaritasi uzunligi. Avval 5–8 bosqich edi — foydalanuvchiga "yo'l aniq"
 // degan ishonch bermasdi. Endi 15–20: boshidan oxirigacha to'liq yo'l.

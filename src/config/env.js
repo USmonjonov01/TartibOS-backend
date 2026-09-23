@@ -64,6 +64,22 @@ export const env = {
     // (frontenddagi Google tugmasi ishlatadigan bilan BIR XIL bo'lishi kerak,
     // aks holda token audience tekshiruvi rad etadi).
     googleClientId: process.env.GOOGLE_CLIENT_ID || null,
+
+    // env.js ichidagi "export const env = { ... }" obyektiga, geminiModel
+    // qatoridan keyin QO'SHING (geminiApiKey/geminiModel'ni o'chirmang — ular
+    // hali ham kerak, faqat quyidagilarni yangi qator sifatida qo'shing):
+
+    // Cloudflare AI Gateway — Gemini ishlamay qolganda ikkinchi zaxira
+    // (haqiqiy OpenAI GPT-5.5'ga Cloudflare hisobi orqali proksi, pullik —
+    // Cloudflare dashboard'da yetarli kredit borligini tekshiring).
+    cloudflareApiToken: process.env.CLOUDFLARE_API_TOKEN || null,
+    cloudflareAccountId: process.env.CLOUDFLARE_ACCOUNT_ID || null,
+    cloudflareModel: process.env.CLOUDFLARE_MODEL || "openai/gpt-5.5",
+
+    // Groq — uchinchi (oxirgi) zaxira, bepul va juda tez.
+    groqApiKey: process.env.GROQ_API_KEY || null,
+    groqModel: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+
 };
 
 export default env;

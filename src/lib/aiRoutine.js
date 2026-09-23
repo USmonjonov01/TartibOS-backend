@@ -1,4 +1,4 @@
-import { generateJson } from "./gemini.js";
+import { generateJson } from "./aiClient.js";
 
 // Frontend'dagi Routine sahifasi bilan bir xil kategoriyalar/ikonlar
 // (src/components/Routine/index.jsx). Ikon foydalanuvchi qo'lda yaratgan
