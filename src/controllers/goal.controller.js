@@ -268,14 +268,50 @@ export const toggleStep = async (req, res, next) => {
         if (!step) return res.status(404).json({ message: "Bosqich topilmadi" });
 
         const willComplete = !step.completed;
-        const updatedStep = await prisma.roadmapStep.update({
-            where: { id: stepId },
-            data: { completed: willComplete, completedAt: willComplete ? new Date() : null },
-        });
 
-        res.json({ step: updatedStep, leveledUp: willComplete });
+        if (willComplete) {
+            // Ketma-ketlikni buzmaslik uchun: bu bosqichdan oldingi (order kichikroq)
+            // barcha bosqichlar avval bajarilgan bo'lishi kerak. Aks holda
+            // foydalanuvchi to'g'ridan-to'g'ri eng oxirgi bosqichga "sakrab" o'tib,
+            // o'zini haqiqatda bajarmagan ishni bajardim deb noto'g'ri baholashi
+            // mumkin — bu ham UX, ham motivatsiya nuqtai nazaridan zararli.
+            const earliestIncomplete = await prisma.roadmapStep.findFirst({
+                where: { goalId, order: { lt: step.order }, completed: false },
+                orderBy: { order: "asc" },
+            });
+            if (earliestIncomplete) {
+                return res.status(409).json({
+                    message: `Avval "${earliestIncomplete.title}" bosqichini bajarish kerak — bosqichlar ketma-ket bajariladi.`,
+                    code: "STEP_OUT_OF_ORDER",
+                    requiredStepId: earliestIncomplete.id,
+                });
+            }
+
+            const updatedStep = await prisma.roadmapStep.update({
+                where: { id: stepId },
+                data: { completed: true, completedAt: new Date() },
+            });
+            return res.json({ step: updatedStep, leveledUp: true });
+        }
+
+        // Bosqichni "bajarilmagan"ga qaytarayapmiz. Ketma-ketlikni saqlash
+        // uchun bundan KEYINGI (order kattaroq) barcha bajarilgan bosqichlar
+        // ham avtomatik bajarilmagan holatga qaytariladi — aks holda masalan
+        // 8-bosqich bajarilgan holda qolib, 5-bosqich bajarilmagan bo'lib
+        // qolishi mumkin edi, bu ham xuddi shu "tartibsizlik" bug'i.
+        const [updatedStep] = await prisma.$transaction([
+            prisma.roadmapStep.update({
+                where: { id: stepId },
+                data: { completed: false, completedAt: null },
+            }),
+            prisma.roadmapStep.updateMany({
+                where: { goalId, order: { gt: step.order }, completed: true },
+                data: { completed: false, completedAt: null },
+            }),
+        ]);
+
+        res.json({ step: updatedStep, leveledUp: false });
     } catch (err) {
         next(err);
-
     }
 };
