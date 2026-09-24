@@ -2,6 +2,7 @@ import app from "./app.js";
 import env from "./config/env.js";
 import { registerBotCommands } from "./bot/commands.js";
 import { startReminderScheduler } from "./bot/reminders.js";
+import { startWeeklyReviewScheduler } from "./bot/weeklyReview.js";
 import { bot } from "./lib/telegram.js";
 
 const server = app.listen(env.port, () => {
@@ -10,6 +11,7 @@ const server = app.listen(env.port, () => {
 
 registerBotCommands();
 startReminderScheduler();
+startWeeklyReviewScheduler();
 
 // Graceful shutdown — server to'xtaganda (Ctrl+C, `node --watch` qayta
 // ishga tushirishi, yoki Render'ning deploy vaqtidagi restart'i) botning
