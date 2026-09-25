@@ -2,6 +2,10 @@ import { z } from "zod";
 
 export const createGoalSchema = z.object({
     title: z.string().trim().min(2, "Maqsad nomi kamida 2 ta belgidan iborat bo'lishi kerak").max(150),
+    // Ixtiyoriy: foydalanuvchining hozirgi holati/qo'shimcha konteksti
+    // (masalan "hozir junior frontend developerman"). AI yo'l xaritasi va
+    // kun tartibi shu kontekstga qarab moslashadi.
+    description: z.string().trim().max(600).optional().nullable(),
     // Andozadan boshlash uchun (masalan "frontend-to-fullstack"). Bo'sh
     // qoldirilsa, bosqichsiz Goal yaratiladi — foydalanuvchi o'zi qo'shadi.
     templateKey: z.string().trim().max(80).optional().nullable(),
@@ -21,6 +25,10 @@ export const createGoalSchema = z.object({
 
 export const generateStepsSchema = z.object({
     title: z.string().trim().min(2, "Maqsad nomi kamida 2 ta belgidan iborat bo'lishi kerak").max(150),
+    // Ixtiyoriy: foydalanuvchi o'z hozirgi holatini yozib qo'ysa (masalan
+    // "hozir junior frontend developerman"), AI boshlanish nuqtasini va
+    // bosqichlar chuqurligini shunga moslaydi.
+    description: z.string().trim().max(600).optional().nullable(),
 });
 
 // Maqsad uchun AI kun tartibi tuzish. dailyHours — foydalanuvchi kuniga maqsadga

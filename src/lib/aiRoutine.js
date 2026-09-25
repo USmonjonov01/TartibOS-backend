@@ -40,11 +40,29 @@ Qat'iy qoidalar:
 - "days" — haftaning kunlari: mon, tue, wed, thu, fri, sat, sun. Hamma odat 7 kun bo'lmasin:
   haftada kamida bitta kun yengil yoki to'liq dam kuni qolsin. Yangi odatni juda tez-tez qilish
   o'rniga izchil rejaga ustunlik ber.
-- "title" — qisqa (6 so'zgacha), aniq, o'zbek tilida (lotin), maqsadga xos. "Kunlik mashq"
-  kabi umumiy nomlar YOMON; "Gitarada akkord mashqi" kabilar YAXSHI.
-- "dayPlans" — "days" ichidagi HAR BIR kun uchun bitta qisqa (12 so'zgacha) va aniq reja,
-  yo'l xaritasining hozirgi bosqichlariga bog'liq (masalan {"mon":"Am va C akkordlarini almashtirish"}).
-  "days"da yo'q kunlar uchun yozma.
+- "title" — QISQA va TANISH bo'lsin (1–3 so'z), foydalanuvchi bir qarashda tushunadigan oddiy
+  odat nomi. Bu — HAR KUNI (yoki rejalashtirilgan kunlarda) takrorlanadigan "odat toifasi"ning
+  nomi, o'sha kunning ANIQ mazmuni EMAS — kunning aniq mazmuni "dayPlans"da beriladi (pastga
+  qara). Uzun, "risoladagidek" yoki bir martalik tavsif beruvchi nomlar YOZMA.
+  YAXSHI: "Sport", "Gitara mashqi", "Kitob o'qish", "Meditatsiya", "Ingliz tili".
+  YOMON: "Butun tanani mustahkamlovchi mashqlar", "Gitarada akkord va arpeggio mashqlari",
+  "Kunlik ingliz tili lug'at va grammatika mashqi" — bular juda uzun va "bir kunlik" tavsifga
+  o'xshab qolgan, holbuki bu — doimiy takrorlanadigan odat nomi.
+- "dayPlans" — "days" ichidagi HAR BIR kun uchun juda QISQA (2–5 so'z) FOKUS BELGISI, TO'LIQ GAP
+  EMAS. Bu xuddi kalendarga qo'lda yozib qo'yiladigan eslatma kabi — "bugun nimaga e'tibor
+  qaratish kerak"ligini bir necha so'zda aytadi, uni TUSHUNTIRMAYDI. Agar mavzu kunlar bo'yicha
+  tabiiy ravishda bo'linadigan bo'lsa (masalan sport — mushak guruhlari, gitara — texnika turlari,
+  dasturlash — mavzular), har bir kun uchun BOSHQA-BOSHQA fokus ber — bir xil so'zni barcha
+  kunlarga qo'yib chiqma.
+  YAXSHI (Sport uchun): {"mon":"Ko'krak/Press","wed":"Orqa/Bitseps","fri":"Oyoq kuni"}.
+  YAXSHI (Gitara uchun): {"mon":"Akkordlar","thu":"Arpeggio mashqi"}.
+  YOMON: {"mon":"Bugun siz butun tanangizni mashq qilasiz va kuch mashqlarini bajarasiz"} —
+  bu to'liq gap, juda uzun, "dayPlans"ga emas balki tavsifga o'xshaydi.
+- Til: "title" va "dayPlans" O'ZBEK TILIDA (lotin yozuvida) bo'lsin. Faqat maqsad texnik soha
+  bo'lib, atama o'zbekchada tabiiy qabul qilinmasa (masalan "React", "JavaScript", "Git" kabi
+  atoqli/texnik nomlar), o'sha so'zni original holida qoldirish mumkin — lekin gapning qolgan
+  qismi baribir o'zbekcha bo'lsin. Oddiy so'zlarni ("chest", "workout", "practice" kabi)
+  inglizchada yozma.
 - "category" — faqat shulardan biri: ${CATEGORIES.join(", ")}.
 - "priority" — faqat: yuqori, ortacha, past.
 - Javobni FAQAT quyidagi JSON formatida qaytar, boshqa hech qanday matn yoki markdown belgisisiz:
@@ -76,7 +94,7 @@ export function sanitizeRoutinePlan(parsed, existingRoutines = []) {
     const accepted = [];
 
     for (const r of raw) {
-        const title = String(r?.title || "").trim().slice(0, 80);
+        const title = String(r?.title || "").trim().slice(0, 40);
         if (!title || takenTitles.has(normTitle(title))) continue;
 
         const start = String(r?.start || "").trim();
@@ -91,7 +109,9 @@ export function sanitizeRoutinePlan(parsed, existingRoutines = []) {
         const dayPlans = {};
         for (const d of DAY_KEYS) {
             const plan = r?.dayPlans?.[d];
-            dayPlans[d] = finalDays.includes(d) && typeof plan === "string" ? plan.trim().slice(0, 120) : "";
+            // 40 belgi ~ 5-6 so'z — dayPlan TO'LIQ GAP emas, qisqa fokus-belgisi
+            // bo'lishi kerak (masalan "Ko'krak/Press"), shu sabab qat'iy qisqa.
+            dayPlans[d] = finalDays.includes(d) && typeof plan === "string" ? plan.trim().slice(0, 40) : "";
         }
 
         const candidate = {
@@ -134,6 +154,7 @@ export async function generateRoutinePlan({ goal, existingRoutines = [], dailyHo
 
     const userText = [
         `Maqsad: ${goal.title}`,
+        goal.description ? `Foydalanuvchining hozirgi holati (o'zi yozgan izoh): ${goal.description}` : null,
         `Yo'l xaritasi (${steps.length} ta bosqich):`,
         steps.map((s, i) => `${i + 1}. ${s.title}${s.completed ? " (bajarilgan)" : ""}`).join("\n") || "yo'q",
         `Hozirgi e'tibor markazi (birinchi bajarilmagan bosqichlar):`,
@@ -141,7 +162,9 @@ export async function generateRoutinePlan({ goal, existingRoutines = [], dailyHo
         `Kuniga maqsadga ajrata oladigan vaqt: ${dailyHours ?? 2} soat`,
         `Mavjud odatlar (ularning vaqtlarini band qilma, nomlarini takrorlama):`,
         formatExisting(existingRoutines),
-    ].join("\n");
+    ]
+        .filter(Boolean)
+        .join("\n");
 
     const parsed = await generateJson({ systemPrompt: SYSTEM_PROMPT, userText });
     const routines = sanitizeRoutinePlan(parsed, existingRoutines);

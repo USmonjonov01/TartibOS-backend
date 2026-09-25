@@ -110,6 +110,11 @@ model EmailVerificationToken {
 model Goal {
   id          String   @id @default(uuid())
   title       String
+  // Foydalanuvchi maqsadni kiritganda ixtiyoriy qo'shimcha izoh (masalan
+  // "hozir junior frontend developerman"). AI yo'l xaritasi VA kun tartibi
+  // shu kontekstni hisobga oladi — xaritani foydalanuvchining haqiqiy
+  // hozirgi darajasiga moslashtiradi.
+  description String?
   // Agar tayyor andozadan yaratilgan bo'lsa, uning kaliti (masalan
   // "frontend-to-fullstack") — src/data/roadmapTemplates.js'ga qarang.
   // Andozasiz, foydalanuvchi qo'lda yaratgan bo'lsa — null.
