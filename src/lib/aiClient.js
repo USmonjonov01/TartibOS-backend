@@ -14,12 +14,20 @@ const PROVIDERS = [gemini, cloudflare, groq];
 //  - AI_REQUEST_FAILED yoki AI_PARSE_FAILED bo'lsa — logga yozadi va keyingisiga o'tadi
 //  - Hech biri ishlamasa — oxirgi provayderning xatosini tashlaydi (controller
 //    buni tutib, foydalanuvchiga "AI xizmati hozircha band" kabi xabar beradi)
-export async function generateJson({ systemPrompt, userText }) {
+// thinkingLevel — faqat Gemini uchun ma'noli ("low" | "medium" | "high",
+// geminiProvider.js'ga qarang). Berilmasa "low" (tez, arzon) ishlatiladi.
+// Vazifa foydalanuvchi bergan erkin matn (izoh, kontekst)ni chindan
+// "o'ylab" hisobga olishni talab qilsa (masalan AI roadmap/routine
+// generatsiyasi), chaqiruvchi "medium" yoki "high" so'rashi kerak — "low"
+// rejimda model ko'pincha shunday nuance'larni e'tiborsiz qoldirib, shunchaki
+// sarlavhaga mos "yodlab olingan" andoza javob beradi. Cloudflare/Groq
+// provayderlarida bu parametr hozircha e'tiborga olinmaydi (ma'nosi yo'q).
+export async function generateJson({ systemPrompt, userText, thinkingLevel }) {
     let lastErr;
 
     for (const provider of PROVIDERS) {
         try {
-            const result = await provider.generateJson({ systemPrompt, userText });
+            const result = await provider.generateJson({ systemPrompt, userText, thinkingLevel });
             return result;
         } catch (err) {
             lastErr = err;

@@ -18,7 +18,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // Eslatma: thinkingLevel faqat Gemini 3.x modellarida ishlaydi. Agar
 // GEMINI_MODEL 2.5 seriyasiga o'zgartirilsa, bu yerda thinkingBudget'ga
 // almashtirish kerak — aks holda 400 xato qaytadi.
-export async function generateJson({ systemPrompt, userText }) {
+export async function generateJson({ systemPrompt, userText, thinkingLevel = "low" }) {
     if (!env.geminiApiKey) {
         const err = new Error("Gemini sozlanmagan (GEMINI_API_KEY yo'q)");
         err.code = "AI_NOT_CONFIGURED";
@@ -40,7 +40,7 @@ export async function generateJson({ systemPrompt, userText }) {
                 contents: [{ role: "user", parts: [{ text: userText }] }],
                 generationConfig: {
                     responseMimeType: "application/json",
-                    thinkingConfig: { thinkingLevel: "low" },
+                    thinkingConfig: { thinkingLevel },
                 },
             }),
         });

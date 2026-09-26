@@ -42,8 +42,14 @@ export const listGoals = async (req, res, next) => {
 // yoki o'chirib, keyin createGoal orqali haqiqiy Goal yaratadi.
 export const generateSteps = async (req, res, next) => {
     try {
-        const { title } = generateStepsSchema.parse(req.body);
-        const steps = await generateRoadmapSteps(title);
+        const { title, description } = generateStepsSchema.parse(req.body);
+        // VAQTINCHALIK DIAGNOSTIKA LOGI — description backendga to'g'ri
+        // yetib kelayotganini tasdiqlash uchun. Muammo hal bo'lgach, bu
+        // qatorni olib tashlashingiz mumkin.
+        console.log(
+            `[goals/generate] title="${title}" description=${description ? `"${description.slice(0, 80)}..."` : "(bo'sh — yuborilmagan)"}`
+        );
+        const steps = await generateRoadmapSteps(title, { description });
         if (steps.length === 0) {
             console.error("[goals/generate] AI bo'sh javob qaytardi, title:", title);
             return res.status(502).json({ message: "AI bosqich taklif qila olmadi. Qo'lda qo'shing." });
@@ -135,6 +141,7 @@ export const createGoal = async (req, res, next) => {
         const goal = await prisma.goal.create({
             data: {
                 title: data.title,
+                description: data.description || null,
                 templateKey: data.steps?.length ? null : (template?.key ?? null),
                 order: nextOrder,
                 userId: req.user.id,

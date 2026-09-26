@@ -93,7 +93,7 @@ export async function generateRoadmapSteps(goalTitle, { description } = {}) {
     let best = [];
     const trimmedDescription = String(description || "").trim().slice(0, 600);
     const contextLine = trimmedDescription
-        ? `Foydalanuvchining hozirgi holati (o'zi yozgan izoh): ${trimmedDescription}`
+        ? `--- FOYDALANUVCHI YOZGAN IZOH (hozirgi holati) ---\n${trimmedDescription}\n--- IZOH TUGADI ---\nMUHIM: yuqoridagi izohni albatta o'qib, boshlanish nuqtasi va bosqichlar chuqurligini SHUNGA moslashtiring — bu shunchaki qo'shimcha ma'lumot emas, aynan shu yo'l xaritasi kimga mo'ljallanganini belgilaydi.`
         : "Foydalanuvchi hozirgi holati haqida izoh yozmagan — noldan boshlang'ich deb hisobla.";
 
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -102,9 +102,20 @@ export async function generateRoadmapSteps(goalTitle, { description } = {}) {
                 ? ""
                 : `\n\nDIQQAT: oldingi javobda bosqichlar yetarli emas edi. Aynan ${TARGET_MIN}–${MAX_STEPS} ta batafsil bosqich yarat.`;
 
+        // VAQTINCHALIK DIAGNOSTIKA LOGI — AI'ga borayotgan matnning AYNAN
+        // o'zi (contextLine bilan birga) shu yerda ko'rinadi. Muammo hal
+        // bo'lgach, bu qatorni olib tashlashingiz mumkin.
+        console.log(`[aiRoadmap] contextLine="${contextLine}"`);
         const parsed = await generateJson({
             systemPrompt: SYSTEM_PROMPT,
             userText: `Maqsad: ${goalTitle}\n${contextLine}\nBosqichlar soni: ${TARGET_MIN}–${MAX_STEPS} ta (kamida ${TARGET_MIN} ta). Yo'lni qisqartirma, har bir qadamni alohida yoz — texnologiya/vosita bosqichlari bilan bir qatorda mantiqiy fikrlash, amaliyot va kichik loyiha/sinov bosqichlarini ham unutma.${hint}`,
+            // "low" (standart) tez, lekin izohni "chuqur o'ylab" hisobga olish
+            // o'rniga sarlavhaga mos "yodlab olingan" andoza javob berishga
+            // moyil bo'lib qoladi — bu aynan shu funksiya uchun noto'g'ri
+            // moslashuvga olib kelgan edi. Roadmap generatsiyasi context'ga
+            // qarab chindan moslashishni talab qiladigan vazifa, shu sabab
+            // "high" so'raladi.
+            thinkingLevel: "high",
         });
 
         const steps = normalizeSteps(parsed);

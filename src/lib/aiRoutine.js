@@ -1,178 +1,131 @@
 import { generateJson } from "./aiClient.js";
 
-// Frontend'dagi Routine sahifasi bilan bir xil kategoriyalar/ikonlar
-// (src/components/Routine/index.jsx). Ikon foydalanuvchi qo'lda yaratgan
-// odatlardagidek kategoriyadan olinadi.
-export const CATEGORIES = ["Salomatlik", "Jismoniy", "Bilim", "Kasb", "Refleksiya", "Ijtimoiy", "Boshqa"];
-const CATEGORY_ICONS = {
-    Salomatlik: "💚",
-    Jismoniy: "💪",
-    Bilim: "📚",
-    Kasb: "💼",
-    Refleksiya: "🪞",
-    Ijtimoiy: "👥",
-    Boshqa: "✦",
-};
-const PRIORITIES = ["yuqori", "ortacha", "past"];
-const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
-const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+// Yo'l xaritasi uzunligi. Avval 5–8 bosqich edi — foydalanuvchiga "yo'l aniq"
+// degan ishonch bermasdi. Endi 15–20: boshidan oxirigacha to'liq yo'l.
+export const TARGET_MIN = 15;
+export const MIN_STEPS = TARGET_MIN; // shundan kam kelsa, bir marta qayta so'raymiz
+export const MAX_STEPS = 20;
 
-const MIN_ROUTINES = 3;
-const MAX_ROUTINES = 8;
-const MAX_DURATION_MIN = 240;
-
-const SYSTEM_PROMPT = `Sen TartibOS ilovasidagi shaxsiy intizom yordamchisisan. Foydalanuvchining maqsadi va
-uning yo'l xaritasi (bosqichlari) berilgan. Sening vazifang — shu maqsadga yetish uchun
-foydalanuvchiga MAXSUS, REAL va bajarsa bo'ladigan haftalik kun tartibi (odatlar
-ro'yxati) tuzish. Noto'g'ri yoki oshirib yuborilgan tartib foydalanuvchini charchatadi
-va tashlab ketishiga olib keladi — shuning uchun real bo'l.
+const SYSTEM_PROMPT = `Sen TartibOS ilovasidagi shaxsiy rivojlanish yordamchisisan. Foydalanuvchi
+o'ziga bir maqsad qo'yadi (masalan "Fullstack developer bo'lish", "Gitara chalishni
+o'rganish", "Yugurish orqali sog'lom bo'lish"), va ixtiyoriy ravishda o'zining hozirgi
+holati haqida qisqa izoh yozishi mumkin (masalan "hozir junior frontend developerman").
+Sening vazifang — shu MAQSADNING O'ZIGA mos, hozirgi nuqtadan maqsadga yetguncha bo'lgan
+TO'LIQ, batafsil va aniq yo'l xaritasini tuzish. Foydalanuvchi shu xaritaga qarab "mening
+yo'lim aniq ekan, hech qanday muhim narsa tashlab ketilmagan" degan ishonchga kelishi kerak.
 
 Qat'iy qoidalar:
-- ${MIN_ROUTINES} tadan ${MAX_ROUTINES} tagacha odat yarat. Kamida yarmi maqsadga BEVOSITA xizmat qilsin
-  (yo'l xaritasining hozirgi bosqichlarini bajarishga). Qolganlari qo'llab-quvvatlovchi
-  bo'lishi mumkin (harakat, dam olish, kun yakuniy sharhi) — lekin ular ham maqsadga mos bo'lsin.
-- Foydalanuvchi kuniga maqsadga ajrata oladigan vaqt beriladi. Maqsadga oid odatlarning
-  KUNLIK JAMI davomiyligi shu vaqtdan oshmasin.
-- Har bir odat 15 daqiqadan 120 daqiqagacha davom etsin.
-- Vaqtlar 24 soatlik "HH:MM" formatida, 06:00 dan 22:30 gacha oralig'ida bo'lsin (uyqu vaqtiga
-  tegma). Odatlar bir-birining ustiga tushmasin. "Mavjud odatlar" ro'yxatidagi vaqtlarni
-  ham band qilma va ularning nomlarini takrorlama.
-- "days" — haftaning kunlari: mon, tue, wed, thu, fri, sat, sun. Hamma odat 7 kun bo'lmasin:
-  haftada kamida bitta kun yengil yoki to'liq dam kuni qolsin. Yangi odatni juda tez-tez qilish
-  o'rniga izchil rejaga ustunlik ber.
-- "title" — QISQA va TANISH bo'lsin (1–3 so'z), foydalanuvchi bir qarashda tushunadigan oddiy
-  odat nomi. Bu — HAR KUNI (yoki rejalashtirilgan kunlarda) takrorlanadigan "odat toifasi"ning
-  nomi, o'sha kunning ANIQ mazmuni EMAS — kunning aniq mazmuni "dayPlans"da beriladi (pastga
-  qara). Uzun, "risoladagidek" yoki bir martalik tavsif beruvchi nomlar YOZMA.
-  YAXSHI: "Sport", "Gitara mashqi", "Kitob o'qish", "Meditatsiya", "Ingliz tili".
-  YOMON: "Butun tanani mustahkamlovchi mashqlar", "Gitarada akkord va arpeggio mashqlari",
-  "Kunlik ingliz tili lug'at va grammatika mashqi" — bular juda uzun va "bir kunlik" tavsifga
-  o'xshab qolgan, holbuki bu — doimiy takrorlanadigan odat nomi.
-- "dayPlans" — "days" ichidagi HAR BIR kun uchun juda QISQA (2–5 so'z) FOKUS BELGISI, TO'LIQ GAP
-  EMAS. Bu xuddi kalendarga qo'lda yozib qo'yiladigan eslatma kabi — "bugun nimaga e'tibor
-  qaratish kerak"ligini bir necha so'zda aytadi, uni TUSHUNTIRMAYDI. Agar mavzu kunlar bo'yicha
-  tabiiy ravishda bo'linadigan bo'lsa (masalan sport — mushak guruhlari, gitara — texnika turlari,
-  dasturlash — mavzular), har bir kun uchun BOSHQA-BOSHQA fokus ber — bir xil so'zni barcha
-  kunlarga qo'yib chiqma.
-  YAXSHI (Sport uchun): {"mon":"Ko'krak/Press","wed":"Orqa/Bitseps","fri":"Oyoq kuni"}.
-  YAXSHI (Gitara uchun): {"mon":"Akkordlar","thu":"Arpeggio mashqi"}.
-  YOMON: {"mon":"Bugun siz butun tanangizni mashq qilasiz va kuch mashqlarini bajarasiz"} —
-  bu to'liq gap, juda uzun, "dayPlans"ga emas balki tavsifga o'xshaydi.
-- Til: "title" va "dayPlans" O'ZBEK TILIDA (lotin yozuvida) bo'lsin. Faqat maqsad texnik soha
-  bo'lib, atama o'zbekchada tabiiy qabul qilinmasa (masalan "React", "JavaScript", "Git" kabi
-  atoqli/texnik nomlar), o'sha so'zni original holida qoldirish mumkin — lekin gapning qolgan
-  qismi baribir o'zbekcha bo'lsin. Oddiy so'zlarni ("chest", "workout", "practice" kabi)
-  inglizchada yozma.
-- "category" — faqat shulardan biri: ${CATEGORIES.join(", ")}.
-- "priority" — faqat: yuqori, ortacha, past.
-- Javobni FAQAT quyidagi JSON formatida qaytar, boshqa hech qanday matn yoki markdown belgisisiz:
-{"routines":[{"title":"...","category":"...","priority":"...","start":"HH:MM","end":"HH:MM","days":["mon"],"dayPlans":{"mon":"..."}}]}`;
+- Bosqichlar FAQAT foydalanuvchi yozgan maqsadga oid bo'lsin. Agar maqsad "gitara
+  chalish" bo'lsa, bosqichlar dasturlash yoki sport haqida BO'LMASIN.
+- ${TARGET_MIN} tadan ${MAX_STEPS} tagacha bosqich yarat. Yo'lni qisqartirma: har bir bosqich
+  kichik, aniq qadam bo'lsin (odatda 1–4 haftalik ish), katta sakrashlar bo'lmasin.
+- Boshlanish nuqtasini foydalanuvchining IZOHIDAN (berilgan bo'lsa) va maqsad matnidan
+  aniqla: agar hozirgi daraja ko'rsatilgan bo'lsa (masalan izohda "hozir junior frontend
+  developerman" yoki maqsadda "Frontend'dan Fullstack'ga"), o'sha darajadan boshla —
+  foydalanuvchi allaqachon biladigan asosiy narsalarni (masalan HTML/CSS'ni frontend
+  developer allaqachon biladi) qaytadan o'rgatishga vaqt sarflama, to'g'ridan-to'g'ri
+  KEYINGI daraja bosqichlaridan boshla. Hozirgi daraja ko'rsatilmagan bo'lsa, noldan
+  (mutlaqo boshlang'ich) boshla.
+- Tartib: eng oddiy/poydevor narsadan boshlab, eng murakkab va yakuniy natijaga qarab.
+  Yo'l ichida bo'lishi kerak: poydevor → amaliyot → birinchi haqiqiy natija/loyiha →
+  chuqurlashish → murakkab vazifalar → isbot (portfolio, imtihon, musobaqa, o'lchanadigan
+  natija) → maqsadga erishish. Oxirgi bosqich — maqsadning o'zi yoki uning isboti.
+- MUHIM — FUNDAMENTAL/AMALIYOT BOSQICHLARINI TASHLAB KETMA: ko'p hollarda AI faqat "qaysi
+  texnologiya/vosita o'rganiladi" degan bosqichlarni ketma-ket yozib, ular orasidagi ASOSIY
+  ko'nikmalarni (mantiqiy fikrlash, muammo yechish, amaliy kichik mashqlar, tajriba
+  orttirish) tashlab ketadi — bu YARAMAYDI. Har bir yo'l xaritasida, mavzuga mos holda,
+  quyidagilar ALOHIDA bosqichlar sifatida albatta bo'lishi kerak:
+  * Dasturlash/texnik maqsadlar uchun: mantiqiy fikrlashni mustahkamlash va muammo yechish
+    amaliyoti (masalan Codewars/LeetCode/HackerRank kabi platformalarda masalalar yechish),
+    bir nechta KICHIK mustaqil loyihalar (katta portfolio loyihasidan OLDIN, har bir yangi
+    texnologiyadan keyin — shu texnologiyani mustahkamlash uchun), va "endi bilganlaringizni
+    birlashtiring" turidagi amaliy oraliq bosqichlar. Faqat "React va freymvorklar bilan
+    loyiha qurish" deb bitta katta sakrash qilib qo'yish YETARLI EMAS — undan oldin va orasida
+    mantiqiy fikrlash/muammo yechish va kichik mashqlar bosqichlari bo'lishi SHART.
+  * Jismoniy/sport maqsadlar uchun: texnika o'rganish bilan bir qatorda, kuch/chidamlilik
+    asta-sekin oshirish, dam olish/tiklanish va o'z-o'zini nazorat qilish (masalan progress
+    kuzatish) bosqichlari ham bo'lsin.
+  * Til/ijodiy maqsadlar uchun: nazariya bilan bir qatorda, muntazam amaliy mashq va kichik
+    "sinov" vazifalari (masalan qisqa suhbat, kichik ijro, mini-loyiha) bosqichlari bo'lsin.
+  Xulosa: yo'l xaritasi faqat "nima o'rganish kerak" ro'yxati emas, balki "qanday
+  mustahkamlash va sinab ko'rish kerak" jarayonini ham o'z ichiga olishi kerak.
+- Har bir bosqich TEKSHIRIB BO'LADIGAN natijaga ega bo'lsin: shunchaki "X ni o'rganish"
+  emas, balki "X ni o'rganib, Y ni qilib ko'rsatish". Bosqichlar bir-birini takrorlamasin.
+- "title" — o'zbek tilida (lotin yozuvi), aniq harakat + natija, 14 so'zdan oshmasin.
+- "stageLabel" — foydalanuvchining shu bosqichdagi "unvoni", 2–4 so'z (masalan
+  "Boshlang'ich gitarachi", "Junior Backend"). Unvonlar yo'l bo'ylab o'sib borsin;
+  qo'shni bosqichlar bir xil unvonga ega bo'lishi mumkin, lekin oxirgisi eng yuqori bo'lsin.
+- Javobni FAQAT quyidagi JSON formatida qaytar, boshqa hech qanday matn, izoh yoki
+  markdown belgisisiz:
+{"steps":[{"title":"...","stageLabel":"..."}]}`;
 
-const toMinutes = (hhmm) => {
-    const [h, m] = hhmm.split(":").map(Number);
-    return h * 60 + m;
-};
+// Xom AI javobini tozalaydi: bo'sh/takror bosqichlarni tashlaydi, uzunlikni
+// cheklaydi va MAX_STEPS'dan ortig'ini kesadi.
+export function normalizeSteps(parsed) {
+    const raw = Array.isArray(parsed?.steps) ? parsed.steps : [];
+    const seen = new Set();
+    const steps = [];
 
-const normTitle = (t) => String(t || "").trim().toLowerCase();
-
-// Ikki odat bir vaqtda, bir kunga tushib qolganmi? days bo'sh/yo'q = har kuni.
-const daysOf = (r) => (Array.isArray(r.days) && r.days.length ? r.days : DAY_KEYS);
-const overlaps = (a, b) => {
-    const sharedDay = daysOf(a).some((d) => daysOf(b).includes(d));
-    if (!sharedDay) return false;
-    return toMinutes(a.start) < toMinutes(b.end) && toMinutes(b.start) < toMinutes(a.end);
-};
-
-// AI javobini tekshiradi va Routine modeliga mos holatga keltiradi.
-// AI'ga ishonib bo'lmaydi: noto'g'ri vaqt, ustma-ust tushgan yoki mavjud odat
-// bilan bir xil nomli yozuvlar shu yerda olib tashlanadi. (Frontend odatlarni
-// sarlavha bo'yicha "dedupe" qiladi — bir xil nom mavjud odatni yashirib
-// qo'yishi mumkin, shuning uchun takror nomlar qat'iy rad etiladi.)
-export function sanitizeRoutinePlan(parsed, existingRoutines = []) {
-    const raw = Array.isArray(parsed?.routines) ? parsed.routines : [];
-    const takenTitles = new Set(existingRoutines.map((r) => normTitle(r.title)));
-    const accepted = [];
-
-    for (const r of raw) {
-        const title = String(r?.title || "").trim().slice(0, 40);
-        if (!title || takenTitles.has(normTitle(title))) continue;
-
-        const start = String(r?.start || "").trim();
-        const end = String(r?.end || "").trim();
-        if (!TIME_RE.test(start) || !TIME_RE.test(end)) continue;
-        const duration = toMinutes(end) - toMinutes(start);
-        if (duration <= 0 || duration > MAX_DURATION_MIN) continue;
-
-        const days = [...new Set((Array.isArray(r.days) ? r.days : []).filter((d) => DAY_KEYS.includes(d)))];
-        const finalDays = days.length ? days : [...DAY_KEYS];
-
-        const dayPlans = {};
-        for (const d of DAY_KEYS) {
-            const plan = r?.dayPlans?.[d];
-            // 40 belgi ~ 5-6 so'z — dayPlan TO'LIQ GAP emas, qisqa fokus-belgisi
-            // bo'lishi kerak (masalan "Ko'krak/Press"), shu sabab qat'iy qisqa.
-            dayPlans[d] = finalDays.includes(d) && typeof plan === "string" ? plan.trim().slice(0, 40) : "";
-        }
-
-        const candidate = {
+    for (const s of raw) {
+        const title = s?.title ? String(s.title).trim().slice(0, 200) : "";
+        if (!title) continue;
+        const key = title.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        steps.push({
             title,
-            category: CATEGORIES.includes(r.category) ? r.category : "Boshqa",
-            icon: CATEGORY_ICONS[CATEGORIES.includes(r.category) ? r.category : "Boshqa"],
-            priority: PRIORITIES.includes(r.priority) ? r.priority : "ortacha",
-            start,
-            end,
-            days: finalDays,
-            dayPlans,
-        };
-
-        const clashes = [...existingRoutines.filter((e) => e.start && e.end), ...accepted].some((other) =>
-            overlaps(candidate, other)
-        );
-        if (clashes) continue;
-
-        accepted.push(candidate);
-        takenTitles.add(normTitle(title));
-        if (accepted.length === MAX_ROUTINES) break;
+            stageLabel: s.stageLabel ? String(s.stageLabel).trim().slice(0, 80) : null,
+        });
+        if (steps.length === MAX_STEPS) break;
     }
-
-    return accepted.sort((a, b) => a.start.localeCompare(b.start));
+    return steps;
 }
 
-const formatExisting = (routines) =>
-    routines.length === 0
-        ? "yo'q"
-        : routines
-              .map((r) => `- ${r.title} (${r.start}–${r.end}, ${daysOf(r).join("/")})`)
-              .join("\n");
+// goalTitle — foydalanuvchi kiritgan maqsad matni.
+// description — ixtiyoriy: foydalanuvchining hozirgi holati haqida qo'shimcha
+// izoh (masalan "hozir junior frontend developerman"). Berilsa, AI boshlanish
+// nuqtasini va bosqichlar chuqurligini shunga moslaydi.
+// Muvaffaqiyatli bo'lsa, [{ title, stageLabel }] massivini qaytaradi.
+// AI juda qisqa xarita (MIN_STEPS'dan kam) qaytarsa, bir marta qayta so'raydi.
+// API kaliti yo'q yoki chaqiruv muvaffaqiyatsiz bo'lsa, xato tashlaydi — controller
+// buni tutib, foydalanuvchiga tushunarli xabar qaytaradi.
+export async function generateRoadmapSteps(goalTitle, { description } = {}) {
+    let best = [];
+    const trimmedDescription = String(description || "").trim().slice(0, 600);
+    const contextLine = trimmedDescription
+        ? `--- FOYDALANUVCHI YOZGAN IZOH (hozirgi holati) ---\n${trimmedDescription}\n--- IZOH TUGADI ---\nMUHIM: yuqoridagi izohni albatta o'qib, boshlanish nuqtasi va bosqichlar chuqurligini SHUNGA moslashtiring — bu shunchaki qo'shimcha ma'lumot emas, aynan shu yo'l xaritasi kimga mo'ljallanganini belgilaydi.`
+        : "Foydalanuvchi hozirgi holati haqida izoh yozmagan — noldan boshlang'ich deb hisobla.";
 
-// goal: { title, steps: [{ title, completed }] }
-// existingRoutines: foydalanuvchining hozirgi faol odatlari
-// dailyHours: kuniga maqsadga ajrata oladigan soat (ixtiyoriy)
-export async function generateRoutinePlan({ goal, existingRoutines = [], dailyHours }) {
-    const steps = goal.steps || [];
-    const focus = steps.filter((s) => !s.completed).slice(0, 5);
+    for (let attempt = 0; attempt < 2; attempt++) {
+        const hint =
+            attempt === 0
+                ? ""
+                : `\n\nDIQQAT: oldingi javobda bosqichlar yetarli emas edi. Aynan ${TARGET_MIN}–${MAX_STEPS} ta batafsil bosqich yarat.`;
 
-    const userText = [
-        `Maqsad: ${goal.title}`,
-        goal.description ? `Foydalanuvchining hozirgi holati (o'zi yozgan izoh): ${goal.description}` : null,
-        `Yo'l xaritasi (${steps.length} ta bosqich):`,
-        steps.map((s, i) => `${i + 1}. ${s.title}${s.completed ? " (bajarilgan)" : ""}`).join("\n") || "yo'q",
-        `Hozirgi e'tibor markazi (birinchi bajarilmagan bosqichlar):`,
-        focus.map((s) => `- ${s.title}`).join("\n") || "- yo'q",
-        `Kuniga maqsadga ajrata oladigan vaqt: ${dailyHours ?? 2} soat`,
-        `Mavjud odatlar (ularning vaqtlarini band qilma, nomlarini takrorlama):`,
-        formatExisting(existingRoutines),
-    ]
-        .filter(Boolean)
-        .join("\n");
+        // VAQTINCHALIK DIAGNOSTIKA LOGI — AI'ga borayotgan matnning AYNAN
+        // o'zi (contextLine bilan birga) shu yerda ko'rinadi. Muammo hal
+        // bo'lgach, bu qatorni olib tashlashingiz mumkin.
+        console.log(`[aiRoadmap] contextLine="${contextLine}"`);
+        const parsed = await generateJson({
+            systemPrompt: SYSTEM_PROMPT,
+            userText: `Maqsad: ${goalTitle}\n${contextLine}\nBosqichlar soni: ${TARGET_MIN}–${MAX_STEPS} ta (kamida ${TARGET_MIN} ta). Yo'lni qisqartirma, har bir qadamni alohida yoz — texnologiya/vosita bosqichlari bilan bir qatorda mantiqiy fikrlash, amaliyot va kichik loyiha/sinov bosqichlarini ham unutma.${hint}`,
+            // "low" (standart) tez, lekin izohni "chuqur o'ylab" hisobga olish
+            // o'rniga sarlavhaga mos "yodlab olingan" andoza javob berishga
+            // moyil bo'lib qoladi — bu aynan shu funksiya uchun noto'g'ri
+            // moslashuvga olib kelgan edi. Roadmap generatsiyasi context'ga
+            // qarab chindan moslashishni talab qiladigan vazifa, shu sabab
+            // "high" so'raladi.
+            thinkingLevel: "high",
+        });
 
-    const parsed = await generateJson({ systemPrompt: SYSTEM_PROMPT, userText });
-    const routines = sanitizeRoutinePlan(parsed, existingRoutines);
-
-    if (routines.length < MIN_ROUTINES) {
-        const err = new Error(`AI yaroqli kun tartibi tuza olmadi (${routines.length} ta odat qoldi)`);
-        err.code = "AI_PARSE_FAILED";
-        throw err;
+        const steps = normalizeSteps(parsed);
+        if (steps.length > best.length) best = steps;
+        if (best.length >= MIN_STEPS) break;
     }
-    return routines;
+
+    if (best.length < TARGET_MIN) {
+        // Render loglarida ko'rinishi uchun: AI ikki urinishda ham qisqa xarita bergan
+        console.warn(`[aiRoadmap] AI ${best.length} ta bosqich qaytardi (kutilgan ${TARGET_MIN}–${MAX_STEPS}): "${goalTitle}"`);
+    }
+    return best;
 }
